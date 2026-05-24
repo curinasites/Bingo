@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { db } from '@/lib/db'
 
 // Helper to verify admin access
 async function verifyAdmin(request: NextRequest) {
@@ -32,13 +31,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: adminCheck.error }, { status: adminCheck.status })
     }
 
-    // Strategy 1: Try the Supabase RPC function first
-    // This function uses SECURITY DEFINER to access auth.users data
+    // Try the Supabase RPC function first
     const { data: usersWithCarteiras, error: rpcError } = await supabase
       .rpc('get_users_with_carteiras')
 
     if (!rpcError && usersWithCarteiras) {
-      // RPC function exists - use it directly
       const enrichedUsers = (usersWithCarteiras ?? []).map((row: { user_id: string; email: string; nome: string; saldo: number; updated_at: string }) => ({
         carteira_id: 0,
         user_id: row.user_id,
@@ -67,9 +64,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Strategy 2: Fallback - query carteiras from Supabase and enrich with local profile data
-    console.warn('RPC get_users_with_carteiras not available, using local profile fallback:', rpcError?.message)
-
+    // Fallback: query carteiras directly
     const { data: carteiras, error: carteirasError } = await supabase
       .from('carteiras')
       .select('id, user_id, saldo, updated_at')
@@ -78,24 +73,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: carteirasError.message }, { status: 500 })
     }
 
-    // Fetch all cached user profiles from local database
-    const profiles = await db.userProfile.findMany()
-    const profileMap = new Map(profiles.map(p => [p.supabaseId, p]))
+    const enrichedUsers = (carteiras ?? []).map((carteira) => ({
+      carteira_id: carteira.id,
+      user_id: carteira.user_id,
+      email: `user-${carteira.user_id.slice(0, 8)}...`,
+      nome: `Usuário ${carteira.user_id.slice(0, 6)}`,
+      saldo: carteira.saldo,
+      updated_at: carteira.updated_at,
+    }))
 
-    // Enrich carteiras with real user names from local cache
-    const enrichedUsers = (carteiras ?? []).map((carteira) => {
-      const profile = profileMap.get(carteira.user_id)
-      return {
-        carteira_id: carteira.id,
-        user_id: carteira.user_id,
-        email: profile?.email ?? `user-${carteira.user_id.slice(0, 8)}...`,
-        nome: profile?.name ?? `Usuário ${carteira.user_id.slice(0, 6)}`,
-        saldo: carteira.saldo,
-        updated_at: carteira.updated_at,
-      }
-    })
-
-    // Get all rooms count
     const { count: salasCount } = await supabase
       .from('salas')
       .select('*', { count: 'exact', head: true })
@@ -137,7 +123,6 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'saldo deve ser um número não negativo' }, { status: 400 })
     }
 
-    // Update the user's carteira balance
     const { data: carteira, error: updateError } = await supabase
       .from('carteiras')
       .update({ saldo: Math.round(saldo * 100) / 100, updated_at: new Date().toISOString() })
@@ -173,7 +158,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'sala_id é obrigatório' }, { status: 400 })
     }
 
-    // Verify the room exists
     const { data: sala, error: salaError } = await supabase
       .from('salas')
       .select('id, nome')
@@ -184,11 +168,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Sala não encontrada' }, { status: 404 })
     }
 
-    // Delete related records first
     await supabase.from('sorteios').delete().eq('sala_id', sala_id)
     await supabase.from('cartelas').delete().eq('sala_id', sala_id)
 
-    // Delete the room
     const { error: deleteError } = await supabase
       .from('salas')
       .delete()
@@ -204,4 +186,4 @@ export async function DELETE(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
-}
+  }
