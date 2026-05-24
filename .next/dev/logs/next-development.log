@@ -1,0 +1,6 @@
+{"timestamp":"00:00:11.952","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:00:15.731","source":"Server","level":"LOG","message":"○ Compiling / ..."}
+{"timestamp":"00:00:19.383","source":"Server","level":"ERROR","message":"(node:23565) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)"}
+{"timestamp":"00:00:29.974","source":"Browser","level":"INFO","message":"%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"}
+{"timestamp":"00:03:45.039","source":"Server","level":"LOG","message":"○ Compiling /api/auth/login ..."}
+{"timestamp":"00:03:48.420","source":"Server","level":"ERROR","message":"TypeError: fetch failed"}
