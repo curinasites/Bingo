@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { db } from '@/lib/db'
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,8 +20,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Register with Supabase Auth
-    // Email confirmation is disabled in Supabase settings
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -44,7 +41,6 @@ export async function POST(request: NextRequest) {
     const user = authData.user
     const session = authData.session
 
-    // Create carteiras entry with R$10.00 initial balance
     const { data: carteira, error: carteiraError } = await supabase
       .from('carteiras')
       .insert({
@@ -56,19 +52,6 @@ export async function POST(request: NextRequest) {
 
     if (carteiraError) {
       console.error('Error creating carteira:', carteiraError)
-      // Continue anyway - the user is created
-    }
-
-    // Cache user profile in local database for admin panel lookups
-    try {
-      await db.userProfile.upsert({
-        where: { supabaseId: user.id },
-        update: { email, name, updatedAt: new Date() },
-        create: { supabaseId: user.id, email, name },
-      })
-    } catch (profileError) {
-      console.error('Error caching user profile:', profileError)
-      // Non-critical: continue anyway
     }
 
     return NextResponse.json({
